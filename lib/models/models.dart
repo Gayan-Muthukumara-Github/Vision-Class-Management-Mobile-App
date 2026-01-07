@@ -365,3 +365,115 @@ class ExamMark {
     };
   }
 }
+
+class LessonRecording {
+  final String id;
+  final String teacherId;
+  final String gradeId;
+  final String subjectId;
+  final String title;
+  final String description;
+  final String youtubeLink;
+  final DateTime createdAt;
+  final DateTime? updatedAt;
+
+  LessonRecording({
+    required this.id,
+    required this.teacherId,
+    required this.gradeId,
+    required this.subjectId,
+    required this.title,
+    required this.description,
+    required this.youtubeLink,
+    required this.createdAt,
+    this.updatedAt,
+  });
+
+  factory LessonRecording.fromFirestore(DocumentSnapshot doc) {
+    Map data = doc.data() as Map<String, dynamic>;
+    return LessonRecording(
+      id: doc.id,
+      teacherId: data['teacherId'] ?? '',
+      gradeId: data['gradeId'] ?? '',
+      subjectId: data['subjectId'] ?? '',
+      title: data['title'] ?? '',
+      description: data['description'] ?? '',
+      youtubeLink: data['youtubeLink'] ?? '',
+      createdAt: (data['createdAt'] as Timestamp).toDate(),
+      updatedAt: data['updatedAt'] != null
+          ? (data['updatedAt'] as Timestamp).toDate()
+          : null,
+    );
+  }
+
+  Map<String, dynamic> toFirestore() {
+    return {
+      'teacherId': teacherId,
+      'gradeId': gradeId,
+      'subjectId': subjectId,
+      'title': title,
+      'description': description,
+      'youtubeLink': youtubeLink,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
+    };
+  }
+}
+
+class ExamPaper {
+  final String id;
+  final String teacherId;
+  final String gradeId;
+  final String subjectId;
+  final String term;
+  final String title;
+  final String description;
+  final String fileUrl;
+  final DateTime createdAt;
+  final DateTime? updatedAt;
+
+  ExamPaper({
+    required this.id,
+    required this.teacherId,
+    required this.gradeId,
+    required this.subjectId,
+    required this.term,
+    required this.title,
+    required this.description,
+    required this.fileUrl,
+    required this.createdAt,
+    this.updatedAt,
+  });
+
+  factory ExamPaper.fromFirestore(DocumentSnapshot doc) {
+    Map data = doc.data() as Map<String, dynamic>;
+    return ExamPaper(
+      id: doc.id,
+      teacherId: data['teacherId'] ?? '',
+      gradeId: data['gradeId'] ?? '',
+      subjectId: data['subjectId'] ?? '',
+      term: data['term'] ?? '',
+      title: data['title'] ?? '',
+      description: data['description'] ?? '',
+      fileUrl: data['fileUrl'] ?? '',
+      createdAt: (data['createdAt'] as Timestamp).toDate(),
+      updatedAt: data['updatedAt'] != null
+          ? (data['updatedAt'] as Timestamp).toDate()
+          : null,
+    );
+  }
+
+  Map<String, dynamic> toFirestore() {
+    return {
+      'teacherId': teacherId,
+      'gradeId': gradeId,
+      'subjectId': subjectId,
+      'term': term,
+      'title': title,
+      'description': description,
+      'fileUrl': fileUrl,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
+    };
+  }
+}

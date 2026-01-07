@@ -46,7 +46,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
         print('❌ Login failed!');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Invalid username or password.\nPlease use:\nUsername: admin123\nPassword: admin'),
+            content: Text('Invalid username or password.'),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 5),
           ),
@@ -130,7 +130,6 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                   controller: _usernameController,
                   decoration: const InputDecoration(
                     labelText: 'Username',
-                    hintText: 'Enter admin123',
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.person),
                   ),
@@ -147,7 +146,6 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                   obscureText: _obscurePassword,
                   decoration: InputDecoration(
                     labelText: 'Password',
-                    hintText: 'Enter admin',
                     border: const OutlineInputBorder(),
                     prefixIcon: const Icon(Icons.lock),
                     suffixIcon: IconButton(

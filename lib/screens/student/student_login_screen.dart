@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
-import 'student_results_screen.dart';
+import '../../models/models.dart';
+import 'student_dashboard.dart';
 
 class StudentLoginScreen extends StatefulWidget {
   const StudentLoginScreen({super.key});
@@ -40,7 +41,7 @@ class _StudentLoginScreenState extends State<StudentLoginScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => StudentResultsScreen(student: student),
+            builder: (_) => StudentDashboard(student: student),
           ),
         );
       } else if (mounted) {
@@ -59,7 +60,7 @@ class _StudentLoginScreenState extends State<StudentLoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Student Results'),
+        title: const Text('Student Login'),
         backgroundColor: Colors.orange,
         foregroundColor: Colors.white,
       ),
@@ -88,7 +89,7 @@ class _StudentLoginScreenState extends State<StudentLoginScreen> {
 
                 // Title
                 const Text(
-                  'View Your Results',
+                  'Welcome Student',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -153,7 +154,7 @@ class _StudentLoginScreenState extends State<StudentLoginScreen> {
                       ),
                     )
                         : const Text(
-                      'View Results',
+                      'Login',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -210,6 +211,8 @@ class _StudentLoginScreenState extends State<StudentLoginScreen> {
                       _buildFeatureItem('📝 Teacher remarks'),
                       _buildFeatureItem('📅 Results history'),
                       _buildFeatureItem('📚 Multiple subjects'),
+                      _buildFeatureItem('🎥 Watch recordings'),
+                      _buildFeatureItem('📥 Download papers'),
                     ],
                   ),
                 ),

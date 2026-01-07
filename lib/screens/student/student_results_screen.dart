@@ -151,13 +151,7 @@ class _StudentResultsScreenState extends State<StudentResultsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Student Results'),
-        backgroundColor: Colors.orange,
-        foregroundColor: Colors.white,
-      ),
-      body: _isLoading
+    return _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -356,7 +350,6 @@ class _StudentResultsScreenState extends State<StudentResultsScreen> {
             ],
           ],
         ),
-      ),
-    );
+      );
   }
 }

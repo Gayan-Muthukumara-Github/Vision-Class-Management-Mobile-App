@@ -39,6 +39,19 @@ class FirestoreService {
         snapshot.docs.map((doc) => Teacher.fromFirestore(doc)).toList());
   }
 
+  Future<Teacher?> getTeacherById(String id) async {
+    try {
+      final doc = await _firestore.collection('teachers').doc(id).get();
+      if (doc.exists) {
+        return Teacher.fromFirestore(doc);
+      }
+      return null;
+    } catch (e) {
+      print('Error getting teacher: $e');
+      return null;
+    }
+  }
+
   // Student CRUD
   Future<void> createStudent(Student student) async {
     await _firestore.collection('students').add(student.toFirestore());
@@ -64,6 +77,19 @@ class FirestoreService {
         .snapshots()
         .map((snapshot) =>
         snapshot.docs.map((doc) => Student.fromFirestore(doc)).toList());
+  }
+
+  Future<Student?> getStudentById(String id) async {
+    try {
+      final doc = await _firestore.collection('students').doc(id).get();
+      if (doc.exists) {
+        return Student.fromFirestore(doc);
+      }
+      return null;
+    } catch (e) {
+      print('Error getting student: $e');
+      return null;
+    }
   }
 
   // School Year CRUD
