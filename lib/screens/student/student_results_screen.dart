@@ -309,7 +309,15 @@ class _StudentResultsScreenState extends State<StudentResultsScreen> {
                           itemCount: _marks.length,
                           itemBuilder: (context, index) {
                             final mark = _marks[index];
-                            final date = DateTime.parse('${mark.month}-01');
+                            // Convert month name to month number
+                            final monthMap = {
+                              'January': 1, 'February': 2, 'March': 3, 'April': 4,
+                              'May': 5, 'June': 6, 'July': 7, 'August': 8,
+                              'September': 9, 'October': 10, 'November': 11, 'December': 12,
+                            };
+                            final monthNum = monthMap[mark.month] ?? DateTime.now().month;
+                            final year = DateTime.now().year;
+                            final date = DateTime(year, monthNum, 1);
                             final monthYear = DateFormat('MMMM yyyy').format(date);
 
                             return Card(

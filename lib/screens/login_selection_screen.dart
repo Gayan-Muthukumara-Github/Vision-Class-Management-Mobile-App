@@ -24,14 +24,14 @@ class LoginSelectionScreen extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(
-                    Icons.school,
-                    size: 80,
-                    color: Colors.blue,
+                  Image.asset(
+                    'assets/logo.png',
+                    width: 100,
+                    height: 100,
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    'Class Management System',
+                    'Vision Educational Institute',
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -41,7 +41,7 @@ class LoginSelectionScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Select your role to continue',
+                    'Yapahuwa',
                     style: TextStyle(
                       fontSize: 16,
                       color: Colors.black54,

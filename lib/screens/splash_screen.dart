@@ -26,26 +26,23 @@ class _SplashScreenState extends State<SplashScreen> {
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Colors.blue.shade700,
-              Colors.blue.shade900,
-            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.blue.shade50, Colors.white],
           ),
         ),
-        child: const Center(
+        child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.school,
-                size: 100,
-                color: Colors.white,
-              ),
-              SizedBox(height: 20),
-              Text(
-                'Class Management System',
+              Image.asset(
+                    'assets/logo.png',
+                    width: 100,
+                    height: 100,
+                  ),
+              const SizedBox(height: 20),
+              const Text(
+                'Vision Educational Institute',
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
