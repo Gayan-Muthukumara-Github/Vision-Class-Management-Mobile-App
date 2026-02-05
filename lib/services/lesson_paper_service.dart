@@ -14,6 +14,7 @@ class LessonPaperService {
     required String title,
     required String description,
     required String youtubeLink,
+    required int questionNumber,
   }) async {
     try {
       DocumentReference docRef = await _firestore.collection('lesson_recordings').add({
@@ -23,6 +24,7 @@ class LessonPaperService {
         'title': title,
         'description': description,
         'youtubeLink': youtubeLink,
+        'questionNumber': questionNumber,
         'createdAt': Timestamp.now(),
         'updatedAt': null,
       });

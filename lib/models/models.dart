@@ -374,6 +374,7 @@ class LessonRecording {
   final String title;
   final String description;
   final String youtubeLink;
+  final int? questionNumber;
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -385,6 +386,7 @@ class LessonRecording {
     required this.title,
     required this.description,
     required this.youtubeLink,
+    this.questionNumber,
     required this.createdAt,
     this.updatedAt,
   });
@@ -399,6 +401,11 @@ class LessonRecording {
       title: data['title'] ?? '',
       description: data['description'] ?? '',
       youtubeLink: data['youtubeLink'] ?? '',
+        questionNumber: data['questionNumber'] != null
+          ? (data['questionNumber'] is int
+            ? data['questionNumber'] as int
+            : int.tryParse(data['questionNumber'].toString()))
+          : null,
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       updatedAt: data['updatedAt'] != null
           ? (data['updatedAt'] as Timestamp).toDate()
@@ -414,6 +421,7 @@ class LessonRecording {
       'title': title,
       'description': description,
       'youtubeLink': youtubeLink,
+      if (questionNumber != null) 'questionNumber': questionNumber,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
     };

@@ -23,6 +23,7 @@ class _TeacherUploadRecordingState extends State<TeacherUploadRecording> {
   
   String? _selectedGradeId;
   String? _selectedSubjectId;
+  int? _selectedQuestionNumber;
   
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -78,6 +79,7 @@ class _TeacherUploadRecordingState extends State<TeacherUploadRecording> {
       setState(() {
         _subjects = subjects;
         _selectedSubjectId = null;
+        _selectedQuestionNumber = null;
       });
     } catch (e) {
       if (mounted) {
@@ -96,6 +98,12 @@ class _TeacherUploadRecordingState extends State<TeacherUploadRecording> {
       );
       return;
     }
+    if (_selectedQuestionNumber == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select question number')),
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
 
@@ -107,6 +115,7 @@ class _TeacherUploadRecordingState extends State<TeacherUploadRecording> {
         title: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
         youtubeLink: _youtubeLinkController.text.trim(),
+        questionNumber: _selectedQuestionNumber!,
       );
 
       if (mounted) {
@@ -164,7 +173,10 @@ class _TeacherUploadRecordingState extends State<TeacherUploadRecording> {
                       }).toList(),
                       onChanged: (gradeId) {
                         if (gradeId != null) {
-                          setState(() => _selectedGradeId = gradeId);
+                          setState(() {
+                            _selectedGradeId = gradeId;
+                            _selectedQuestionNumber = null;
+                          });
                           _loadSubjects(gradeId);
                         }
                       },
@@ -176,6 +188,55 @@ class _TeacherUploadRecordingState extends State<TeacherUploadRecording> {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 16),
+
+                    // Question/Lesson Number Selection (dynamic)
+                    Builder(builder: (context) {
+                      bool isQuestionType = false;
+                      if (_selectedGradeId != null) {
+                        final gradeObj = _grades.firstWhere(
+                            (g) => g.id == _selectedGradeId,
+                            orElse: () => Grade(id: '', name: '', createdAt: DateTime.now()));
+                        final match = RegExp(r"(\d+)").firstMatch(gradeObj.name);
+                        if (match != null) {
+                          final gnum = int.tryParse(match.group(0) ?? '0') ?? 0;
+                          isQuestionType = (gnum == 3 || gnum == 4 || gnum == 5);
+                        }
+                      }
+
+                      final label = isQuestionType ? 'Select Question Number' : 'Select Lesson Number';
+                      final hint = isQuestionType ? 'Choose question number' : 'Choose lesson number';
+                      final validatorMsg = isQuestionType ? 'Please select a question number' : 'Please select a lesson number';
+
+                      int max = isQuestionType ? 240 : 40;
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(label, style: Theme.of(context).textTheme.titleMedium),
+                          const SizedBox(height: 8),
+                          DropdownButtonFormField<int>(
+                            value: _selectedQuestionNumber,
+                            hint: Text(hint),
+                            items: List<int>.generate(max, (i) => i + 1)
+                                .map((n) => DropdownMenuItem(
+                                      value: n,
+                                      child: Text(isQuestionType ? 'Q$n' : 'Lesson$n'),
+                                    ))
+                                .toList(),
+                            onChanged: (num) {
+                              if (num != null) setState(() => _selectedQuestionNumber = num);
+                            },
+                            validator: (value) => value == null ? validatorMsg : null,
+                            decoration: InputDecoration(
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }),
                     const SizedBox(height: 16),
 
                     // Subject Selection

@@ -20,9 +20,11 @@ class _StudentWatchRecordingsState extends State<StudentWatchRecordings> {
   List<Grade> _grades = [];
   List<Subject> _subjects = [];
   List<LessonRecording> _recordings = [];
+  List<int> _availableNumbers = [];
 
   String? _selectedGradeId;
   String? _selectedSubjectId;
+  int? _selectedQuestionNumber;
 
   bool _isLoadingGrades = true;
   bool _isLoadingData = false;
@@ -55,6 +57,8 @@ class _StudentWatchRecordingsState extends State<StudentWatchRecordings> {
       _selectedSubjectId = null;
       _subjects = [];
       _recordings = [];
+      _availableNumbers = [];
+      _selectedQuestionNumber = null;
       _isLoadingData = true;
     });
 
@@ -80,8 +84,23 @@ class _StudentWatchRecordingsState extends State<StudentWatchRecordings> {
     try {
       final recordings = await _lessonPaperService
           .getRecordingsByGradeAndSubject(gradeId, subjectId);
+      
+      // Extract unique question numbers and sort them
+      final numberSet = <int>{};
+      for (var rec in recordings) {
+        if (rec.questionNumber != null) {
+          numberSet.add(rec.questionNumber!);
+        } else {
+          final extracted = _extractNumberFromTitle(rec.title);
+          if (extracted != null) numberSet.add(extracted);
+        }
+      }
+      final sortedNumbers = numberSet.toList()..sort();
+      
       setState(() {
         _recordings = recordings;
+        _availableNumbers = sortedNumbers;
+        _selectedQuestionNumber = null;
         _isLoadingData = false;
       });
     } catch (e) {
@@ -122,6 +141,20 @@ class _StudentWatchRecordingsState extends State<StudentWatchRecordings> {
     }
   }
 
+  bool _isQuestionGrade() {
+    if (_selectedGradeId == null) return false;
+    final grade = _grades.firstWhere(
+      (g) => g.id == _selectedGradeId,
+      orElse: () => Grade(id: '', name: '', createdAt: DateTime.now()),
+    );
+    final match = RegExp(r"(\d+)").firstMatch(grade.name);
+    if (match != null) {
+      final gnum = int.tryParse(match.group(0) ?? '0') ?? 0;
+      return (gnum == 3 || gnum == 4 || gnum == 5);
+    }
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoadingGrades) {
@@ -159,11 +192,11 @@ class _StudentWatchRecordingsState extends State<StudentWatchRecordings> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
-                        color: isSelected ? Colors.blue : Colors.grey[200],
+                        color: isSelected ? Colors.orange : Colors.grey[200],
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
                           color:
-                              isSelected ? Colors.blue : Colors.transparent,
+                              isSelected ? Colors.orange : Colors.transparent,
                           width: 2,
                         ),
                       ),
@@ -215,12 +248,12 @@ class _StudentWatchRecordingsState extends State<StudentWatchRecordings> {
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
                                 color: isSelected
-                                    ? Colors.blue.withOpacity(0.1)
+                                    ? Colors.orange.withOpacity(0.1)
                                     : Colors.grey[100],
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
                                   color: isSelected
-                                      ? Colors.blue
+                                      ? Colors.orange
                                       : Colors.transparent,
                                   width: 2,
                                 ),
@@ -230,7 +263,7 @@ class _StudentWatchRecordingsState extends State<StudentWatchRecordings> {
                                   Icon(
                                     Icons.subject,
                                     color: isSelected
-                                        ? Colors.blue
+                                        ? Colors.orange
                                         : Colors.grey,
                                   ),
                                   const SizedBox(width: 12),
@@ -241,7 +274,7 @@ class _StudentWatchRecordingsState extends State<StudentWatchRecordings> {
                                           ? FontWeight.bold
                                           : FontWeight.normal,
                                       color: isSelected
-                                          ? Colors.blue
+                                          ? Colors.orange
                                           : Colors.black,
                                     ),
                                   ),
@@ -250,7 +283,7 @@ class _StudentWatchRecordingsState extends State<StudentWatchRecordings> {
                                   if (isSelected)
                                     const Icon(
                                       Icons.check_circle,
-                                      color: Colors.blue,
+                                      color: Colors.orange,
                                     ),
                                 ],
                               ),
@@ -262,7 +295,35 @@ class _StudentWatchRecordingsState extends State<StudentWatchRecordings> {
             ),
           const SizedBox(height: 24),
 
-          // Recordings List (if subject selected)
+          // Question/Lesson Number Selection (if subject selected)
+          if (_selectedSubjectId != null && _availableNumbers.isNotEmpty)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _isQuestionGrade() ? 'Select Question Number' : 'Select Lesson Number',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 12),
+                DropdownButton<int>(
+                  isExpanded: true,
+                  value: _selectedQuestionNumber,
+                  hint: Text(_isQuestionGrade() ? 'Choose question number' : 'Choose lesson number'),
+                  items: _availableNumbers
+                      .map((n) => DropdownMenuItem(
+                            value: n,
+                            child: Text(_isQuestionGrade() ? 'Q$n' : 'Lesson $n'),
+                          ))
+                      .toList(),
+                  onChanged: (num) {
+                    setState(() => _selectedQuestionNumber = num);
+                  },
+                ),
+              ],
+            ),
+          const SizedBox(height: 24),
+
+          // Recordings List (if subject selected and optionally filtered by question number)
           if (_selectedSubjectId != null)
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -274,23 +335,38 @@ class _StudentWatchRecordingsState extends State<StudentWatchRecordings> {
                 const SizedBox(height: 12),
                 _isLoadingData
                     ? const Center(child: CircularProgressIndicator())
-                    : _recordings.isEmpty
-                        ? Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.grey[100],
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Center(
-                              child: Text('No recordings available'),
-                            ),
-                          )
-                        : ListView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: _recordings.length,
-                            itemBuilder: (context, index) {
-                              final recording = _recordings[index];
+                    : (() {
+                        // Filter recordings by selected question number if chosen
+                        final filteredRecordings = _selectedQuestionNumber == null
+                            ? _recordings
+                            : _recordings
+                                .where((rec) {
+                                  final num = rec.questionNumber ?? _extractNumberFromTitle(rec.title);
+                                  return num == _selectedQuestionNumber;
+                                })
+                                .toList();
+
+                        return filteredRecordings.isEmpty
+                            ? Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[100],
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Center(
+                                  child: Text('No recordings available'),
+                                ),
+                              )
+                            : ListView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: filteredRecordings.length,
+                                itemBuilder: (context, index) {
+                                  final recording = filteredRecordings[index];
+
+                              final displayNumber = recording.questionNumber ?? _extractNumberFromTitle(recording.title);
+                              final isQType = _isQuestionGrade();
+                              final label = isQType ? 'Q' : 'Lesson ';
 
                               return Card(
                                 margin: const EdgeInsets.only(bottom: 12),
@@ -325,14 +401,33 @@ class _StudentWatchRecordingsState extends State<StudentWatchRecordings> {
                                                 crossAxisAlignment:
                                                     CrossAxisAlignment.start,
                                                 children: [
-                                                  Text(
-                                                    recording.title,
-                                                    style: Theme.of(context)
-                                                        .textTheme
-                                                        .titleSmall,
-                                                    maxLines: 2,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
+                                                  Row(
+                                                    children: [
+                                                      Expanded(
+                                                        child: Text(
+                                                          recording.title,
+                                                          style: Theme.of(context)
+                                                              .textTheme
+                                                              .titleSmall,
+                                                          maxLines: 2,
+                                                          overflow:
+                                                              TextOverflow.ellipsis,
+                                                        ),
+                                                      ),
+                                                      if (displayNumber != null)
+                                                        Container(
+                                                          margin: const EdgeInsets.only(left: 8),
+                                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                          decoration: BoxDecoration(
+                                                            color: Colors.orange.withOpacity(0.1),
+                                                            borderRadius: BorderRadius.circular(12),
+                                                          ),
+                                                          child: Text(
+                                                            '$label$displayNumber',
+                                                            style: const TextStyle(color: Colors.orange, fontSize: 12),
+                                                          ),
+                                                        ),
+                                                    ],
                                                   ),
                                                 ],
                                               ),
@@ -367,12 +462,24 @@ class _StudentWatchRecordingsState extends State<StudentWatchRecordings> {
                                   ),
                                 ),
                               );
-                            },
-                          ),
+                                },
+                              );
+                      }()),
               ],
             ),
         ],
       ),
     );
+  }
+
+  int? _extractNumberFromTitle(String title) {
+    try {
+      final matches = RegExp(r"(\d{1,3})").allMatches(title);
+      if (matches.isEmpty) return null;
+      final m = matches.last.group(0);
+      return m != null ? int.tryParse(m) : null;
+    } catch (_) {
+      return null;
+    }
   }
 }

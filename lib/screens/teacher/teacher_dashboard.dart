@@ -22,6 +22,18 @@ class _TeacherDashboardState extends State<TeacherDashboard>
   final LessonPaperService _lessonPaperService = LessonPaperService();
   late TabController _tabController;
 
+  // Recordings tab filter state
+  String? _recordingSelectedGradeId;
+  String? _recordingSelectedSubjectId;
+  List<Grade> _recordingGrades = [];
+  List<Subject> _recordingSubjects = [];
+
+  // Papers tab filter state
+  String? _paperSelectedGradeId;
+  String? _paperSelectedSubjectId;
+  List<Grade> _paperGrades = [];
+  List<Subject> _paperSubjects = [];
+
   @override
   void initState() {
     super.initState();
@@ -179,6 +191,28 @@ class _TeacherDashboardState extends State<TeacherDashboard>
     );
   }
 
+  int? _extractNumberFromTitle(String title) {
+    try {
+      final matches = RegExp(r"(\d{1,3})").allMatches(title);
+      if (matches.isEmpty) return null;
+      // Prefer the last match (often numbering at end)
+      final m = matches.last.group(0);
+      return m != null ? int.tryParse(m) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool _isQuestionGrade(String gradeId, List<Grade> grades) {
+    final grade = grades.firstWhere((g) => g.id == gradeId, orElse: () => Grade(id: '', name: '', createdAt: DateTime.now()));
+    final match = RegExp(r"(\d+)").firstMatch(grade.name);
+    if (match != null) {
+      final gnum = int.tryParse(match.group(0) ?? '0') ?? 0;
+      return (gnum == 3 || gnum == 4 || gnum == 5);
+    }
+    return false;
+  }
+
   Widget _buildClassroomsTab(AuthProvider authProvider) {
     return StreamBuilder<List<Classroom>>(
       stream: _firestoreService.getTeacherClassrooms(authProvider.userId!),
@@ -328,74 +362,171 @@ class _TeacherDashboardState extends State<TeacherDashboard>
   Widget _buildRecordingsTab(AuthProvider authProvider) {
     return Stack(
       children: [
-        FutureBuilder<List<LessonRecording>>(
-          future: _lessonPaperService.getTeacherRecordings(authProvider.userId!),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
+        FutureBuilder<List<Grade>>(
+          future: _firestoreService.getGrades().first,
+          builder: (context, gradeSnapshot) {
+            if (gradeSnapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
 
-            if (snapshot.hasError) {
-              return Center(child: Text('Error: ${snapshot.error}'));
+            if (gradeSnapshot.hasError) {
+              return Center(child: Text('Error: ${gradeSnapshot.error}'));
             }
 
-            final recordings = snapshot.data ?? [];
+            final allGrades = gradeSnapshot.data ?? [];
+            _recordingGrades = allGrades;
 
-            if (recordings.isEmpty) {
-              return const Center(
-                child: Text('No recordings uploaded yet'),
-              );
-            }
-
-            return ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: recordings.length,
-              itemBuilder: (context, index) {
-                final recording = recordings[index];
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: ListTile(
-                    leading: const Icon(Icons.videocam, color: Colors.blue),
-                    title: Text(recording.title),
-                    subtitle: Text(recording.description),
-                    trailing: PopupMenuButton(
-                      itemBuilder: (context) => [
-                        PopupMenuItem(
-                          child: const Text('Edit'),
-                          onTap: () {
-                            // TODO: Implement edit recording
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Edit coming soon')),
-                            );
-                          },
-                        ),
-                        PopupMenuItem(
-                          child: const Text('Delete'),
-                          onTap: () {
-                            _showDeleteConfirmation(
-                              'Delete Recording',
-                              'Are you sure you want to delete this recording?',
-                              () async {
-                                await _lessonPaperService
-                                    .deleteLessonRecording(recording.id);
-                                if (mounted) {
-                                  setState(() {});
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Recording deleted'),
-                                      backgroundColor: Colors.green,
-                                    ),
-                                  );
-                                }
-                              },
-                            );
+            return Column(
+              children: [
+                // Grade Filter
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Select Grade', style: Theme.of(context).textTheme.titleMedium),
+                      const SizedBox(height: 8),
+                      DropdownButton<String>(
+                        isExpanded: true,
+                        value: _recordingSelectedGradeId,
+                        hint: const Text('Choose a grade'),
+                        items: allGrades
+                            .map((g) => DropdownMenuItem(value: g.id, child: Text(g.name)))
+                            .toList(),
+                        onChanged: (gradeId) {
+                          setState(() {
+                            _recordingSelectedGradeId = gradeId;
+                            _recordingSelectedSubjectId = null;
+                            _recordingSubjects = [];
+                          });
+                          if (gradeId != null) _loadRecordingSubjects(gradeId);
+                        },
+                      ),
+                      if (_recordingSelectedGradeId != null) ...[
+                        const SizedBox(height: 16),
+                        Text('Select Subject', style: Theme.of(context).textTheme.titleMedium),
+                        const SizedBox(height: 8),
+                        DropdownButton<String>(
+                          isExpanded: true,
+                          value: _recordingSelectedSubjectId,
+                          hint: const Text('Choose a subject'),
+                          items: _recordingSubjects
+                              .map((s) => DropdownMenuItem(value: s.id, child: Text(s.name)))
+                              .toList(),
+                          onChanged: (subjectId) {
+                            setState(() => _recordingSelectedSubjectId = subjectId);
                           },
                         ),
                       ],
+                    ],
+                  ),
+                ),
+                // Filtered Recordings List
+                if (_recordingSelectedGradeId != null && _recordingSelectedSubjectId != null)
+                  Expanded(
+                    child: FutureBuilder<List<LessonRecording>>(
+                      future: _lessonPaperService.getRecordingsByGradeAndSubject(
+                        _recordingSelectedGradeId!,
+                        _recordingSelectedSubjectId!,
+                      ),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const Center(child: CircularProgressIndicator());
+                        }
+
+                        if (snapshot.hasError) {
+                          return Center(child: Text('Error: ${snapshot.error}'));
+                        }
+
+                        final recordings = snapshot.data ?? [];
+
+                        if (recordings.isEmpty) {
+                          return const Center(child: Text('No recordings for this selection'));
+                        }
+
+                        return ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          itemCount: recordings.length,
+                          itemBuilder: (context, index) {
+                            final recording = recordings[index];
+                            final displayNumber = recording.questionNumber ?? _extractNumberFromTitle(recording.title);
+                            final isQType = _isQuestionGrade(_recordingSelectedGradeId!, _recordingGrades);
+                            final label = isQType ? 'Q' : 'Lesson ';
+
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              child: ListTile(
+                                leading: const Icon(Icons.videocam, color: Colors.blue),
+                                title: Row(
+                                  children: [
+                                    Expanded(child: Text(recording.title)),
+                                    if (displayNumber != null)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blue.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          '$label$displayNumber',
+                                          style: const TextStyle(color: Colors.blue, fontSize: 12),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(recording.description),
+                                    if (displayNumber != null) const SizedBox(height: 4),
+                                    if (displayNumber != null)
+                                      Text(
+                                        '${isQType ? 'Question' : 'Lesson'} Number: $displayNumber',
+                                        style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                                      ),
+                                  ],
+                                ),
+                                trailing: PopupMenuButton(
+                                  itemBuilder: (context) => [
+                                    PopupMenuItem(
+                                      child: const Text('Edit'),
+                                      onTap: () {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Edit coming soon')),
+                                        );
+                                      },
+                                    ),
+                                    PopupMenuItem(
+                                      child: const Text('Delete'),
+                                      onTap: () {
+                                        _showDeleteConfirmation(
+                                          'Delete Recording',
+                                          'Are you sure you want to delete this recording?',
+                                          () async {
+                                            await _lessonPaperService.deleteLessonRecording(recording.id);
+                                            if (mounted) {
+                                              setState(() {});
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text('Recording deleted'),
+                                                  backgroundColor: Colors.green,
+                                                ),
+                                              );
+                                            }
+                                          },
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      },
                     ),
                   ),
-                );
-              },
+              ],
             );
           },
         ),
@@ -420,86 +551,167 @@ class _TeacherDashboardState extends State<TeacherDashboard>
     );
   }
 
+  Future<void> _loadRecordingSubjects(String gradeId) async {
+    try {
+      final subjects = await _lessonPaperService.getSubjectsForGrade(gradeId);
+      setState(() => _recordingSubjects = subjects);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading subjects: $e')),
+        );
+      }
+    }
+  }
+
   Widget _buildPapersTab(AuthProvider authProvider) {
     return Stack(
       children: [
-        FutureBuilder<List<ExamPaper>>(
-          future: _lessonPaperService.getTeacherPapers(authProvider.userId!),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
+        FutureBuilder<List<Grade>>(
+          future: _firestoreService.getGrades().first,
+          builder: (context, gradeSnapshot) {
+            if (gradeSnapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
 
-            if (snapshot.hasError) {
-              return Center(child: Text('Error: ${snapshot.error}'));
+            if (gradeSnapshot.hasError) {
+              return Center(child: Text('Error: ${gradeSnapshot.error}'));
             }
 
-            final papers = snapshot.data ?? [];
+            final allGrades = gradeSnapshot.data ?? [];
+            _paperGrades = allGrades;
 
-            if (papers.isEmpty) {
-              return const Center(
-                child: Text('No papers uploaded yet'),
-              );
-            }
-
-            return ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: papers.length,
-              itemBuilder: (context, index) {
-                final paper = papers[index];
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: ListTile(
-                    leading: const Icon(Icons.description, color: Colors.orange),
-                    title: Text(paper.title),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(paper.description),
-                        const SizedBox(height: 4),
-                        Chip(
-                          label: Text(paper.term),
-                          backgroundColor: Colors.orange.withOpacity(0.2),
-                        ),
-                      ],
-                    ),
-                    trailing: PopupMenuButton(
-                      itemBuilder: (context) => [
-                        PopupMenuItem(
-                          child: const Text('Edit'),
-                          onTap: () {
-                            // TODO: Implement edit paper
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Edit coming soon')),
-                            );
+            return Column(
+              children: [
+                // Grade Filter
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Select Grade', style: Theme.of(context).textTheme.titleMedium),
+                      const SizedBox(height: 8),
+                      DropdownButton<String>(
+                        isExpanded: true,
+                        value: _paperSelectedGradeId,
+                        hint: const Text('Choose a grade'),
+                        items: allGrades
+                            .map((g) => DropdownMenuItem(value: g.id, child: Text(g.name)))
+                            .toList(),
+                        onChanged: (gradeId) {
+                          setState(() {
+                            _paperSelectedGradeId = gradeId;
+                            _paperSelectedSubjectId = null;
+                            _paperSubjects = [];
+                          });
+                          if (gradeId != null) _loadPaperSubjects(gradeId);
+                        },
+                      ),
+                      if (_paperSelectedGradeId != null) ...[
+                        const SizedBox(height: 16),
+                        Text('Select Subject', style: Theme.of(context).textTheme.titleMedium),
+                        const SizedBox(height: 8),
+                        DropdownButton<String>(
+                          isExpanded: true,
+                          value: _paperSelectedSubjectId,
+                          hint: const Text('Choose a subject'),
+                          items: _paperSubjects
+                              .map((s) => DropdownMenuItem(value: s.id, child: Text(s.name)))
+                              .toList(),
+                          onChanged: (subjectId) {
+                            setState(() => _paperSelectedSubjectId = subjectId);
                           },
                         ),
-                        PopupMenuItem(
-                          child: const Text('Delete'),
-                          onTap: () {
-                            _showDeleteConfirmation(
-                              'Delete Paper',
-                              'Are you sure you want to delete this paper?',
-                              () async {
-                                await _lessonPaperService.deleteExamPaper(paper.id);
-                                if (mounted) {
-                                  setState(() {});
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Paper deleted'),
-                                      backgroundColor: Colors.green,
+                      ],
+                    ],
+                  ),
+                ),
+                // Filtered Papers List
+                if (_paperSelectedGradeId != null && _paperSelectedSubjectId != null)
+                  Expanded(
+                    child: FutureBuilder<List<ExamPaper>>(
+                      future: _lessonPaperService.getPapersByGradeAndSubject(
+                        _paperSelectedGradeId!,
+                        _paperSelectedSubjectId!,
+                      ),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const Center(child: CircularProgressIndicator());
+                        }
+
+                        if (snapshot.hasError) {
+                          return Center(child: Text('Error: ${snapshot.error}'));
+                        }
+
+                        final papers = snapshot.data ?? [];
+
+                        if (papers.isEmpty) {
+                          return const Center(child: Text('No papers for this selection'));
+                        }
+
+                        return ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          itemCount: papers.length,
+                          itemBuilder: (context, index) {
+                            final paper = papers[index];
+
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              child: ListTile(
+                                leading: const Icon(Icons.description, color: Colors.orange),
+                                title: Text(paper.title),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(paper.description),
+                                    const SizedBox(height: 4),
+                                    Chip(
+                                      label: Text(paper.term),
+                                      backgroundColor: Colors.orange.withOpacity(0.2),
                                     ),
-                                  );
-                                }
-                              },
+                                  ],
+                                ),
+                                trailing: PopupMenuButton(
+                                  itemBuilder: (context) => [
+                                    PopupMenuItem(
+                                      child: const Text('Edit'),
+                                      onTap: () {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Edit coming soon')),
+                                        );
+                                      },
+                                    ),
+                                    PopupMenuItem(
+                                      child: const Text('Delete'),
+                                      onTap: () {
+                                        _showDeleteConfirmation(
+                                          'Delete Paper',
+                                          'Are you sure you want to delete this paper?',
+                                          () async {
+                                            await _lessonPaperService.deleteExamPaper(paper.id);
+                                            if (mounted) {
+                                              setState(() {});
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(
+                                                  content: Text('Paper deleted'),
+                                                  backgroundColor: Colors.green,
+                                                ),
+                                              );
+                                            }
+                                          },
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
                             );
                           },
-                        ),
-                      ],
+                        );
+                      },
                     ),
                   ),
-                );
-              },
+              ],
             );
           },
         ),
@@ -522,6 +734,19 @@ class _TeacherDashboardState extends State<TeacherDashboard>
         ),
       ],
     );
+  }
+
+  Future<void> _loadPaperSubjects(String gradeId) async {
+    try {
+      final subjects = await _lessonPaperService.getSubjectsForGrade(gradeId);
+      setState(() => _paperSubjects = subjects);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading subjects: $e')),
+        );
+      }
+    }
   }
 
   void _showDeleteConfirmation(
